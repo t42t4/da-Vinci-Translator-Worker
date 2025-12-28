@@ -17,19 +17,20 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
 def run_health_check_server():
-    # Renderが指定するポート番号を取得（デフォルトは8080）
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
     print(f"Health Check Server running on port {port}")
     server.serve_forever()
 
-# バックグラウンドでサーバーを起動
 threading.Thread(target=run_health_check_server, daemon=True).start()
 # --------------------------------------------------
 
 # === Secretsからの読み込み ===
 TOKEN = os.environ['DISCORD_TOKEN']
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
+
+# --- 【追加】LivingチャンネルのID ---
+TARGET_CHANNEL_ID = 1361403076560425095
 
 if not WEBHOOK_URL:
     print("🚨🚨🚨 WARNING: WEBHOOK_URL not set. 🚨🚨🚨")
@@ -55,7 +56,13 @@ def send_webhook_message(username, avatar_url, content):
 
 @bot.event
 async def on_message(message):
+    # ボット自身、Webhook、内容なしは無視
     if message.author.bot or message.webhook_id or not message.content:
+        return
+
+    # --- 【重要】Livingチャンネル以外での発言は完全にスルーする ---
+    if message.channel.id != TARGET_CHANNEL_ID:
+        await bot.process_commands(message)
         return
 
     text = message.content 
@@ -111,7 +118,6 @@ def send_healthcheck():
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
-    # Healthchecks.ioの監視を開始
     bot.loop.run_in_executor(None, send_healthcheck)
 
 if __name__ == '__main__':
