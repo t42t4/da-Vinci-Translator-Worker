@@ -8,6 +8,7 @@ import asyncio
 import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import re
 
 # --- 🚀 Render専用：ポートエラー回避用のダミーサーバー ---
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -77,8 +78,26 @@ async def on_message(message):
         await bot.process_commands(message)
         return
 
-    text = message.content 
+    # 絵文字判定
+    text = message.content.strip()
+    
+    # 文字（言語）が含まれているかチェック
+    has_content = re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7A3a-zA-Z]', text)
+
+    if not has_content:
+        # 絵文字や記号のみの場合はここで終了（翻訳せずに無視）
+        return
+
     try:
+        # リプライ先の情報を取得する処理
+        reply_header = ""
+        if message.reference and message.reference.resolved:
+            ref_msg = message.reference.resolved
+            # リプライ先がメッセージとして存在する場合
+            if isinstance(ref_msg, discord.Message):
+                # 相手の表示名を「>> @名前」の形式で用意
+                reply_header = f"**>> @{ref_msg.author.display_name}**\n"
+
         detected_lang_code = USER_LANG_MAP.get(message.author.id, 'ja')
         target_lang_code = None
 
@@ -91,9 +110,27 @@ async def on_message(message):
 
         if target_lang_code is None:
             return 
+        # --- 翻訳処理（リトライ機能付き） ---
+        translated_text = None
+        max_retries = 3
+        
+        for i in range(max_retries):
+            try:
+                # 翻訳を実行
+                translated_result = translator.translate(text, src=detected_lang_code, dest=target_lang_code)
+                if translated_result and translated_result.text:
+                    translated_text = translated_result.text
+                    break
+            except Exception as e:
+                # 英語でのエラーログ出力
+                print(f"Translation attempt {i+1}/{max_retries} failed: {e}")
+                if i < max_retries - 1:
+                    await asyncio.sleep(1) # 1秒待って再試行
 
-        translated_result = translator.translate(text, src=detected_lang_code, dest=target_lang_code)
-        translated_text = translated_result.text
+        # 3回試してもダメだった場合の最終警告
+        if not translated_text:
+            print(f"ERROR: All {max_retries} translation attempts failed for user {message.author.id}")
+            return 
 
         # 翻訳結果を辞書に基づいて置換する
         for wrong, right in FIX_DICT.items():
@@ -102,8 +139,9 @@ async def on_message(message):
         if not translated_text:
             return 
 
+        # 先頭に reply_header を合体させる
         quote_prefix = ">>> " if '\n' in text else "> "
-        formatted_message = f"{text}\n{quote_prefix}{flag_emoji}：{translated_text}"
+        formatted_message = f"{reply_header}{text}\n{quote_prefix}{flag_emoji}：{translated_text}"
 
         await asyncio.to_thread(
             send_webhook_message,
