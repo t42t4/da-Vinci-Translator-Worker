@@ -39,8 +39,19 @@ if not WEBHOOK_URL:
 USER_LANG_MAP = {
     1355636991303352362: 'ja',    # 竜田
     1455034055228788737: 'ja',    # kayoko
+    1429463236159475792: 'ja',    # Emmanue
     1432596792683528294: 'zh-tw', # 薩摩
     1432334719328059493: 'zh-tw', # Noelle
+}
+
+# === 翻訳辞書（ニックネームや特殊用語の矯正） ===
+# 左側に「Google翻訳が出しそうな誤訳」、右側に「正しい表記」を書きます
+FIX_DICT = {
+FIX_DICT = {
+    'カヨソース': 'かよちゃん',
+    '嘉代ソース': 'かよちゃん',
+    'kayoソース': 'かよちゃん',
+    'Kayoソース': 'かよちゃん',
 }
 
 intents = discord.Intents.default()
@@ -84,6 +95,10 @@ async def on_message(message):
 
         translated_result = translator.translate(text, src=detected_lang_code, dest=target_lang_code)
         translated_text = translated_result.text
+
+        # 翻訳結果を辞書に基づいて置換する
+        for wrong, right in FIX_DICT.items():
+            translated_text = translated_text.replace(wrong, right)
 
         if not translated_text:
             return 
