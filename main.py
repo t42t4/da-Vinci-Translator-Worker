@@ -88,9 +88,11 @@ def send_webhook_with_embed(username, avatar_url, embed):
 
 @bot.event
 async def on_message(message):
+    # ボット自身、Webhook、空メッセージを無視
     if message.author.bot or message.webhook_id or not message.content:
         return
 
+    # 指定チャンネル以外は無視
     if message.channel.id != TARGET_CHANNEL_ID:
         await bot.process_commands(message)
         return
@@ -102,6 +104,15 @@ async def on_message(message):
         return
 
     try:
+        # --- リプライ情報の取得 ---
+        reply_header = ""
+        if message.reference and message.reference.message_id:
+            try:
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                reply_header = f"**⤷ {ref_msg.author.display_name}へ:** "
+            except:
+                pass
+
         detected_lang = USER_LANG_MAP.get(message.author.id, 'ja')
         
         # ターゲット情報の組み立て
@@ -116,43 +127,39 @@ async def on_message(message):
 
         # --- ✨ Geminiによる翻訳 ---
         prompt = f"{SYSTEM_INSTRUCTION}\n\n以下の文章を{target_lang}に翻訳して:\n{text}"
-        # 非同期でGeminiを呼び出す
         response = await asyncio.to_thread(model.generate_content, prompt)
         translated_text = response.text.strip()
 
         # --- 🎨 Embed（カード）の作成 ---
-        # 翻訳テキストだけを載せた、カラーラインつきのシンプルなカード
         embed = discord.Embed(
             description=translated_text,
             color=embed_color
         )
-
-        # フッターに国旗の絵文字だけを添える
         embed.set_footer(text=flag)
 
-        # Webhookで送信するデータを作成
-        # contentに「原文（＋リプライ先）」を、embedsに「翻訳カード」をセットします
+        # Webhookで送信するデータ
+        # contentに「原文（＋リプライ先）」を表示
         formatted_content = f"{reply_header}{text}"
 
         data = {
             "username": message.author.display_name,
             "avatar_url": str(message.author.avatar.url) if message.author.avatar else None,
-            "content": formatted_content,  # カードの上に原文を表示
-            "embeds": [embed.to_dict()]    # 原文の下に翻訳カードを表示
+            "content": formatted_content,
+            "embeds": [embed.to_dict()]
         }
         
-        # Webhook送信（URLにデータを飛ばします）
         requests.post(WEBHOOK_URL, data=json.dumps(data), headers={"Content-Type": "application/json"})
 
-        # 送信が終わったら、ユーザーが打った元のメッセージを削除して画面を整理
+        # 元のメッセージを削除
         await message.delete()
 
     except Exception as e:
+        # これでエラー内容がRenderのログに出るようになります
         print(f"ERROR: {e}")
 
     await bot.process_commands(message)
 
-# --- 以下、Healthcheckなどの関数は変更なし ---
+# --- Healthcheckなどの関数 ---
 def send_healthcheck():
     healthcheck_url = os.getenv('HEALTHCHECK_URL')
     if not healthcheck_url: return
