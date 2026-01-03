@@ -67,11 +67,13 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 @bot.event
 async def on_message(message):
     # --- 🔍 Renderログ用実況 ---
-    print(f"--- SIGNAL RECEIVED FROM {message.author.display_name} ---")
+    # 誰からのメッセージでも、まずはこれをログに出すはずです
+    print(f"--- [LOG] メッセージを受け取りました: {message.author.name} ---")
 
-    # ボット自身、Webhook、空メッセージを無視
-    if message.author.bot or message.webhook_id or not message.content:
+    # ボット自身の発言だけを無視（Webhook判定を一旦外して、ログを確実に出す）
+    if message.author == bot.user or not message.content:
         return
+
 
     # 指定チャンネル以外は無視
     if message.channel.id != TARGET_CHANNEL_ID:
