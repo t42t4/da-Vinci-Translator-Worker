@@ -18,9 +18,9 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
 def run_health_check_server():
-    # Renderの指定ポート（10000）を最優先で、なければ8080を使う
+    # 0.0.0.0 ではなく 空文字 '' にすることで、より確実に外部からのヘルスチェックを通します
     port = int(os.environ.get("PORT", 10000)) 
-    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    server = HTTPServer(('', port), HealthCheckHandler)
     print(f"Health Check Server running on port {port}")
     server.serve_forever()
 
