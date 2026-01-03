@@ -73,8 +73,8 @@ async def on_message(message):
     # --- 🔍 Renderログ用実況（IDチェックの前に移動） ---
     # これにより、どのチャンネルで発言しても必ずログに表示されます
     if not message.author.bot:
-        print(f"--- [DEBUG] 受信: {message.author.name} (Channel ID: {message.channel.id}) ---")
-
+        print(f"--- [DEBUG] Received message from: {message.author.id} ---")
+                                                                                     
     # ボット自身、または内容が空の場合は無視
     if message.author == bot.user or not message.content:
         return
@@ -161,7 +161,7 @@ def send_healthcheck():
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user.name}')
+    print("--- BOT IS READY ---")
     # ヘルスチェック用の別スレッドを開始
     t = threading.Thread(target=send_healthcheck, daemon=True)
     t.start()
