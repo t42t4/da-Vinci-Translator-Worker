@@ -10,6 +10,8 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import re
 
+# 2026-01-03: デバッグ用ログを英語に変更して再デプロイテスト
+
 # --- 🚀 Render専用：ポートエラー回避用のダミーサーバー ---
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
