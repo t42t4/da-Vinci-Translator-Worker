@@ -123,8 +123,8 @@ async def on_message(message):
         # --- ✨ Geminiによる翻訳（バイパス版） ---
         prompt_content = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
         
-        # 直接APIのURLを叩く（v1betaを回避し、v1を直撃します）
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash:generateContent?key={GEMINI_API_KEY}"
+        # 竜田さんのボットに「最新の知能」と「爆速のレスポンス」を！
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {
             "contents": [{
                 "parts": [{"text": prompt_content}]
