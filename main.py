@@ -90,6 +90,8 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     # 1. ログ出力
+    print(f"--- [DEBUG] INCOMING: Sender={message.author.name}, ID={message.author.id}, ChannelID={message.channel.id}, Content='{message.content}' ---")
+
     if not message.author.bot:
         print(f"--- [DEBUG] Message detected from ID: {message.author.id} ---")
 
