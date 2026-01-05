@@ -124,13 +124,13 @@ async def on_message(message):
         prompt_content = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
         
         # 直接APIのURLを叩く（v1betaを回避し、v1を直撃します）
-        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {
             "contents": [{
                 "parts": [{"text": prompt_content}]
             }]
         }
-        
+
         # ライブラリを通さず直接送信
         api_res = requests.post(api_url, json=payload, timeout=30)
         api_res_json = api_res.json()
