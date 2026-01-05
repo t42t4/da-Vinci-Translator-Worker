@@ -120,6 +120,13 @@ async def on_message(message):
             except:
                 pass
 
+        # --- 🚫 絵文字・記号だけの時は翻訳をスキップ（強力版） ---
+        # 記号や絵文字を完全に消してみて、文字が何も残らなければ終了
+        test_text = re.sub(r':[a-zA-Z0-9_]+:|[\u2600-\u27BF]|[\u3000-\u303F]|[\s]|[!-\/:-@\[-`{-~]', '', text)
+        if not test_text:
+            print(f"--- [SKIP] Non-translatable message: {text} ---")
+            return
+
         # --- ✨ Geminiによる翻訳（バイパス版） ---
         prompt_content = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
         
