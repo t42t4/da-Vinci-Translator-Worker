@@ -65,6 +65,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 intents = discord.Intents.all()
+intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # --- サーバー維持・信号送信ロジック ---
