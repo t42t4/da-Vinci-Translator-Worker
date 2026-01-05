@@ -47,7 +47,7 @@ model = genai.GenerativeModel(
 )
 
 # --- AIへの指示書 ---
-SYSTEM_INSTRUCTION = """SYSTEM_INSTRUCTION = """
+SYSTEM_INSTRUCTION = """
 あなたは、日本と台湾の文化、およびゲーム「King's Choice」に精通した、同盟「HuM（ハム）」の親密な通訳者「ダヴィンチ先生」です。
 メンバー間の会話を温かく橋渡しするために、以下のルールを厳守してください。
 
