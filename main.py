@@ -120,15 +120,29 @@ async def on_message(message):
             except:
                 pass
 
-        # --- ✨ Geminiによる翻訳 ---
-        prompt = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
-        response = await asyncio.to_thread(
-        model.generate_content,
-        prompt
-        )
-
-        translated_text = response.text.strip()
+        # --- ✨ Geminiによる翻訳（バイパス版） ---
+        prompt_content = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
         
+        # 直接APIのURLを叩く（v1betaを回避し、v1を直撃します）
+        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt_content}]
+            }]
+        }
+        
+        # ライブラリを通さず直接送信
+        api_res = requests.post(api_url, json=payload, timeout=30)
+        api_res_json = api_res.json()
+        
+        if api_res.status_code != 200:
+            print(f"--- [API ERROR] {api_res.status_code}: {api_res.text} ---")
+            return
+
+        # 翻訳結果の取り出し
+        translated_text = api_res_json['candidates'][0]['content']['parts'][0]['text'].strip()
+
+        # SKIPチェック
         if "SKIP" in translated_text or not translated_text:
             return
 
