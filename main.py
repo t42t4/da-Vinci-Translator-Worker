@@ -2,6 +2,7 @@ import os
 import discord
 from discord.ext import commands
 import google.generativeai as genai
+from google.generativeai import client
 import requests
 import json
 import asyncio
@@ -40,7 +41,10 @@ safety_settings = [
     {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
-model = genai.GenerativeModel('gemini-1.5-flash-8b', safety_settings=safety_settings)
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash',
+    safety_settings=safety_settings
+)
 
 # --- AIへの指示書（プロンプト完全版） ---
 SYSTEM_INSTRUCTION = """
@@ -118,9 +122,13 @@ async def on_message(message):
 
         # --- ✨ Geminiによる翻訳 ---
         prompt = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        translated_text = response.text.strip()
+        response = await asyncio.to_thread(
+        model.generate_content,
+        prompt
+        )
 
+        translated_text = response.text.strip()
+        
         if "SKIP" in translated_text or not translated_text:
             return
 
