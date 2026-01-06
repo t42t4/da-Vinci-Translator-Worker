@@ -157,8 +157,8 @@ async def on_message(message):
                 break 
             except Exception as e:
                 if "429" in str(e) and i < 2:
-                    print(f"【API制限】{i+1}回目のリトライ中... (10秒待機)")
-                    time.sleep(10) 
+                    print(f"【API制限】{i+1}回目のリトライ中... (3秒待機)")
+                    time.sleep(3) 
                     continue
                 else:
                     print(f"【エラー発生】: {e}")
