@@ -35,39 +35,55 @@ TARGET_CHANNEL_ID = 1361403076560425095
 
 # === Geminiの設定 ===
 genai.configure(api_key=GEMINI_API_KEY)
+
+# 竜田さんのお財布ガード ＆ 先生の性格設定
+generation_config = {
+    "temperature": 1.0,           # 感情豊かな翻訳にするため1.0（標準）
+    "max_output_tokens": 500,     # 【重要】ウノさん推奨の出力制限
+    "top_p": 0.95,
+    "top_k": 40,
+}
+
 safety_settings = [
     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
+
+# モデルの定義
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
-    safety_settings=safety_settings
+    safety_settings=safety_settings,
+    generation_config=generation_config
 )
 
-# --- AIへの指示書 ---
+# --- AIへの指示書 (Gemini 2.5 Flash 最適化版) ---
 SYSTEM_INSTRUCTION = """
-あなたはKing's Choice同盟「HuM」の通訳「ダヴィンチ先生」です。原文の感情を映す「鏡」として翻訳してください。
+あなたはKing's Choiceで活動する同盟「HuM」の専属通訳「ダヴィンチ先生」です。
+発言者の感情を映す「鏡」として、以下のルールを厳守して翻訳してください。
 
-【HuM用語】
-・同盟名(HuM, WIN, HAB, POL等)や数字(155, 1, 20等)は文脈を汲み、無理に訳さず維持。
-・ゲーム用語(国力、親密度等)を適切に訳す。
+【最優先ミッション：言語の着地点】
+1. 日本語以外の入力（特に繁体字）→ 【必ず】ひらがな・カタカナを交えた自然な「日本語」へ。漢字だけの「繁体字のまま」は厳禁。
+2. 日本語の入力 → 自然な「繁体字中国語」へ。※下の翻訳例のようなネットスラングも活用可。
 
-【翻訳ルール】
-1. 日本語入力 → 自然な「繁体字中国語」へ。ネットスラング(飯テロ等)も現地風に。
-2. 日本語以外 → 【最優先】必ず「かな」を交えた日本語へ。繁体字のまま返さない
+【HuM・ゲーム専門用語】
+・同盟名 (HuM, WIN, HAB, POL等) やサーバー番号 (155等) は翻訳せずそのまま維持。
+・ゲーム用語を文脈に合わせて適切に訳す。
 
-【スタイル】
-・翻訳結果のみ出力。解説・挨拶は一切禁止。
-・原文の温度感を死守。過度な味付けをせず「発言者の雰囲気」を再現。
-・記号のみ、または翻訳不要な短文は「SKIP」と出力。
-・文脈から推測し訳すが、日本語同士・繁体字同士の変換は避ける。
+【出力ルール】
+・「翻訳結果のみ」を出力してください。挨拶、解説、補足（「〜という意味です」等）は厳禁。
+・原文が記号のみ、または翻訳の必要がない極めて短い反応（「www」「！」等）の場合は「SKIP」とだけ出力。
+・日本語同士、または繁体字同士の変換（オウム返し）は避け、必ず翻訳することを厳守。
 
-【例】
-・155の人は強い → 155伺服器的人很強
-・飯テロ → 深夜放毒
+【翻訳スタイル】
+・原文の温度感や「発言者のキャラクター」を死守してください。過剰に丁寧にする必要はありません。
+
+【翻訳例（補助輪）】
+・155伺服器的人很強 → 155サーバーの人は強いね
+・深夜放毒 → 飯テロ
 ・老師和竜田醬和好啦🥂 → 先生と竜田ちゃんは仲直りしたんだね🥂
+・国力衝榜加油！ → 国力ランキング戦頑張ろう！
 """
 
 intents = discord.Intents.all()
@@ -118,7 +134,7 @@ async def on_message(message):
         if message.reference and message.reference.message_id:
             try:
                 ref_msg = await message.channel.fetch_message(message.reference.message_id)
-                reply_header = f"**⤷ {ref_msg.author.display_name}へ:** "
+                reply_header = f"**⤷ {ref_msg.author.display_name}:** "
             except:
                 pass
 
@@ -141,8 +157,8 @@ async def on_message(message):
                 break 
             except Exception as e:
                 if "429" in str(e) and i < 2:
-                    print(f"【API制限】{i+1}回目のリトライ中... (3秒待機)")
-                    time.sleep(3) 
+                    print(f"【API制限】{i+1}回目のリトライ中... (10秒待機)")
+                    time.sleep(10) 
                     continue
                 else:
                     print(f"【エラー発生】: {e}")
