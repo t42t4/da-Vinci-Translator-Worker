@@ -42,47 +42,30 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
+    model_name='gemini-2.5-flash',
     safety_settings=safety_settings
 )
 
 # --- AIへの指示書 ---
 SYSTEM_INSTRUCTION = """
-あなたは、日本と台湾の文化、およびゲーム「King's Choice」に精通した、同盟「HuM（ハム）」の親密な通訳者「ダヴィンチ先生」です。
-メンバー間の会話を温かく橋渡しするために、以下のルールを厳守してください。
+あなたはKing's Choice同盟「HuM」の通訳「ダヴィンチ先生」です。原文の感情を映す「鏡」として翻訳してください。
 
-【HuM独自の文化・用語】
-・同盟名「HuM」は日本語で「ハム」と書かれることがあります。文脈に応じて親しみやすく訳してください。
-・「King's Choice」のゲーム用語（国力、親密度、イベント名など）を適切に翻訳してください。
-・「155」「1」「20」などの数字は、サーバー番号や順位である可能性を考慮し、安易に単位を付けずニュアンスを維持してください。
-・「HuM」「WIN」「HAB」「POL」のように、ゲーム内の同盟名の略称として3文字のアルファベットが採用されています。無理に翻訳せず、文脈から推測してそのまま使用してください。
+【HuM用語】
+・同盟名(HuM, WIN, HAB, POL等)や数字(155, 1, 20等)は文脈を汲み、無理に訳さず維持。
+・ゲーム用語(国力、親密度等)を適切に訳す。
 
 【翻訳ルール】
-1. 入力が「日本語」の場合：
-   - 自然な「繁体字中国語（台湾華語）」に翻訳してください。
-   - ネットスラング（「飯テロ」→「深夜放毒」等）も現地の感覚に合わせてください。
+1. 日本語入力 → 自然な「繁体字中国語」へ。ネットスラング(飯テロ等)も現地風に。
+2. 他言語入力 → **【最優先】必ず「かな」を交えた日本語**へ。繁体字のまま返さない。
+3. スタイル：
+   - 翻訳結果のみ出力。解説・挨拶は一切禁止。
+   - 原文の温度感を死守。過度な味付けをせず「発言者の雰囲気」を再現。
+   - 意味不明な短文でも文脈から推測し訳す。不要時は「SKIP」と出力。
 
-2. 入力が「日本語以外（繁体字中国語、英語、他）」の場合：
-   - 【最優先命令】必ず「ひらがな・カタカナ」を主体とした「日本語」に翻訳してください。
-   - たとえ入力がすでに繁体字であっても、それをそのまま返してはいけません。日本の仲間が読むための「日本語」に作り直してください。
-   - スラングやタイポ（誤字）が混ざっていても、文脈から意図を汲み取って翻訳してください。
-
-3. 翻訳のスタイルと精度：
-   - 翻訳結果のみを出力し、挨拶や解説（「翻訳しました」等）は絶対に含めないでください。
-   - あなたは「鏡」のように、発言者の意図や感情を正確に反映させてください。
-   - 基本は親しみやすいコミュニティですが、発言者が真面目なトーンの時は真面目に、控えめな時は控えめに、原文の「温度感」をそのまま維持してください。
-   - 翻訳者が勝手に明るくしたり、過度にフレンドリーに味付けしたりせず、文脈から読み取れる「発言者の雰囲気」を最優先してください。
-   - 愛称などは、相手の文化で最も自然な距離感になるよう調整してください。
-   - 元の文章が短すぎて意味が不明な場合でも、前後の文脈から推測して自然な挨拶や返答として訳してください。
-
-4. 特殊処理：
-   - 翻訳が不要（意味を持たない記号のみ等）と判断した場合は「SKIP」とだけ出力してください。
-
-【翻訳の具体例】
-・入力: 「155の人は強い」 → 出力: 「155伺服器的人很強」
-・入力: 「飯テロ」 → 出力: 「深夜放毒」
-・入力(日本語): 「お疲れ様」 → 出力: 「辛苦了」
-・入力(繁体字): 「老師和竜田醬好像已經和好啦🥂太好了！」 → 出力: 「先生と竜田ちゃんはもう仲直りしたみたいだね🥂よかった！」
+【例】
+・155の人は強い → 155伺服器的人很強
+・飯テロ → 深夜放毒
+・老師和竜田醬和好啦🥂 → 先生と竜田ちゃんは仲直りしたんだね🥂
 """
 
 intents = discord.Intents.all()
@@ -138,36 +121,33 @@ async def on_message(message):
                 pass
 
         # --- 🚫 絵文字・記号だけの時は翻訳をスキップ（強力版） ---
-        # 記号や絵文字を完全に消してみて、文字が何も残らなければ終了
         test_text = re.sub(r':[a-zA-Z0-9_]+:|[\u2600-\u27BF]|[\u3000-\u303F]|[\s]|[!-\/:-@\[-`{-~]', '', text)
         if not test_text:
             print(f"--- [SKIP] Non-translatable message: {text} ---")
             return
 
-        # --- ✨ Geminiによる翻訳（バイパス版） ---
-        prompt_content = f"{SYSTEM_INSTRUCTION}\n\nテキスト:\n{text}"
-        
-        # 竜田さんのボットに「最新の知能」と「爆速のレスポンス」を！
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt_content}]
-            }]
-        }
+        # --- ✨ Geminiによる翻訳（リトライ機能付き） ---
+        # 以前の api_url や payload などの処理は、この下の model.generate_content がすべて兼ねています！
+        translated_text = None
+        for i in range(3): 
+            try:
+                # 2.5-flashモデルに指示文とテキストを送る
+                response = model.generate_content(
+                    f"SYSTEM_INSTRUCTION:\n{SYSTEM_INSTRUCTION}\n\nINPUT:\n{text}"
+                )
+                translated_text = response.text.strip()
+                break 
+            except Exception as e:
+                if "429" in str(e) and i < 2:
+                    print(f"【API制限】{i+1}回目のリトライ中... (3秒待機)")
+                    time.sleep(3) 
+                    continue
+                else:
+                    print(f"【エラー発生】: {e}")
+                    break
 
-        # ライブラリを通さず直接送信
-        api_res = requests.post(api_url, json=payload, timeout=30)
-        api_res_json = api_res.json()
-        
-        if api_res.status_code != 200:
-            print(f"--- [API ERROR] {api_res.status_code}: {api_res.text} ---")
-            return
-
-        # 翻訳結果の取り出し
-        translated_text = api_res_json['candidates'][0]['content']['parts'][0]['text'].strip()
-
-        # SKIPチェック
-        if "SKIP" in translated_text or not translated_text:
+        # SKIPチェック（翻訳が空、またはSKIP指示が出た場合）
+        if not translated_text or "SKIP" in translated_text:
             return
 
         # --- 🎨 Embedデザインの構築 ---
