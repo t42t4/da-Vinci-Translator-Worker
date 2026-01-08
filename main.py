@@ -39,7 +39,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # 竜田さんのお財布ガード ＆ 先生の性格設定
 generation_config = {
     "temperature": 1.0,           # 感情豊かな翻訳にするため1.0（標準）
-    "max_output_tokens": 500,     # 【重要】ウノさん推奨の出力制限
+    "max_output_tokens": 2000,     # 【重要】ウノさん推奨の出力制限
     "top_p": 0.95,
     "top_k": 40,
 }
@@ -50,13 +50,6 @@ safety_settings = [
     {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
-
-# モデルの定義
-model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
-    safety_settings=safety_settings,
-    generation_config=generation_config
-)
 
 # --- AIへの指示書 ---
 SYSTEM_INSTRUCTION = """
@@ -105,6 +98,14 @@ SYSTEM_INSTRUCTION = """
 入力：わ〜かよちゃん😆ありがとう！
 出力：哇〜佳代醬😆謝謝！
 """
+
+# モデルの定義
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    safety_settings=safety_settings,
+    generation_config=generation_config,
+    system_instruction=SYSTEM_INSTRUCTION
+)
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -165,20 +166,19 @@ async def on_message(message):
             return
 
         # --- ✨ Geminiによる翻訳（リトライ機能付き） ---
-        # 以前の api_url や payload などの処理は、この下の model.generate_content がすべて兼ねています！
         translated_text = None
         for i in range(3): 
             try:
-                # 2.5-flashモデルに指示文とテキストを送る
-                response = model.generate_content(
-                    f"SYSTEM_INSTRUCTION:\n{SYSTEM_INSTRUCTION}\n\nINPUT:\n{text}"
-                )
-                translated_text = response.text.strip()
-                break 
+                # 2.5-flashモデルにテキストを送る
+                response = await asyncio.to_thread(model.generate_content, text) 
+                
+                if response.text:
+                    translated_text = response.text.strip()
+                    break 
             except Exception as e:
                 if "429" in str(e) and i < 2:
                     print(f"【API制限】{i+1}回目のリトライ中... (3秒待機)")
-                    time.sleep(3) 
+                    await asyncio.sleep(3) # time.sleepではなく非同期のsleepに修正
                     continue
                 else:
                     print(f"【エラー発生】: {e}")
