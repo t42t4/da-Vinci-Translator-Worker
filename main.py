@@ -161,7 +161,7 @@ async def on_message(message):
                 # fetch_messageで情報を取得（非同期対応）
                 ref_msg = await message.channel.fetch_message(message.reference.message_id)
                 jump_url = ref_msg.jump_url
-                reply_header = f"**⤷ {ref_msg.author.display_name} [💬]({jump_url})：** "
+                reply_header = f"**⤷ {ref_msg.author.display_name} [💬]({jump_url})**："
             except:
                 pass
 
