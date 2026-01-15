@@ -18,6 +18,10 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
 
+    # 👇 たくさん出る「10.209...」のログ消すやつ
+    def log_message(self, format, *args):
+        return
+
 def run_health_check_server():
     # 0.0.0.0 ではなく 空文字 '' にすることで、より確実に外部からのヘルスチェックを通します
     port = int(os.environ.get("PORT", 10000)) 
