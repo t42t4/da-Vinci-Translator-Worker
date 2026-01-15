@@ -122,7 +122,7 @@ def send_healthcheck():
     while True:
         try:
             requests.get(healthcheck_url, timeout=10)
-            print("--- [SYSTEM] Healthcheck Ping Sent ---")
+            # print("--- [SYSTEM] Healthcheck Ping Sent ---")
         except Exception as e:
             print(f"--- [SYSTEM] Healthcheck Error: {e} ---")
         time.sleep(60)
@@ -137,12 +137,9 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     # 1. ログ出力
-    print(f"--- [DEBUG] INCOMING: Sender={message.author.name}, ID={message.author.id}, ChannelID={message.channel.id}, Content='{message.content}' ---")
+    print(f"--- [DEBUG] INCOMING: Sender={message.author.name}, ID={message.author.id}, Content='{message.content}' ---")
 
-    if not message.author.bot:
-        print(f"--- [DEBUG] Message detected from ID: {message.author.id} ---")
-
-    # 2. 除外設定
+    # 2. 基本的な除外
     if message.author.bot or message.webhook_id or not message.content:
         return
 
@@ -153,45 +150,52 @@ async def on_message(message):
     text = message.content.strip()
 
     try:
-        # --- 🔗 リプライ情報の取得 ---
+        # --- 🔗 リプライ情報の取得（リプライURL付き） ---
         reply_header = ""
         if message.reference and message.reference.message_id:
             try:
+                # fetch_messageで情報を取得（非同期対応）
                 ref_msg = await message.channel.fetch_message(message.reference.message_id)
-                reply_header = f"**⤷ {ref_msg.author.display_name}:** "
+                jump_url = ref_msg.jump_url
+                reply_header = f"**⤷ {ref_msg.author.display_name} [💬]({jump_url})：** "
             except:
                 pass
 
-        # --- 🚫 絵文字・記号だけの時は翻訳をスキップ（強力版） ---
+        # --- 🚫 絵文字・記号だけの時は翻訳をスキップ ---
+        # お財布ガードをそのまま維持
         test_text = re.sub(r':[a-zA-Z0-9_]+:|[\u2600-\u27BF]|[\u3000-\u303F]|[\s]|[!-\/:-@\[-`{-~]', '', text)
         if not test_text:
-            print(f"--- [SKIP] Non-translatable message: {text} ---")
             return
 
-        # --- ✨ Geminiによる翻訳（リトライ機能付き） ---
+        # --- ✨ Gemini 2.5-flash による翻訳（リトライ機能付き） ---
         translated_text = None
         for i in range(3): 
             try:
-                # 2.5-flashモデルにテキストを送る
+                # 2.5-flashの特性を活かすため、そのままtextを投げる
                 response = await asyncio.to_thread(model.generate_content, text) 
-                
-                if response.text:
+                if response and response.text:
                     translated_text = response.text.strip()
+                    # 指示文通り「SKIP」が返ってきた場合は中断
+                    if "SKIP" in translated_text:
+                        return
                     break 
             except Exception as e:
                 if "429" in str(e) and i < 2:
-                    print(f"【API制限】{i+1}回目のリトライ中... (3秒待機)")
-                    await asyncio.sleep(3) # time.sleepではなく非同期のsleepに修正
+                    print(f"【API制限】リトライ中... {i+1}")
+                    await asyncio.sleep(3)
                     continue
                 else:
                     print(f"【エラー発生】: {e}")
                     break
 
-        # SKIPチェック（翻訳が空、またはSKIP指示が出た場合）
-        if not translated_text or "SKIP" in translated_text:
+        if not translated_text:
             return
 
-        # --- 🎨 Embedデザインの構築 ---
+        # --- 🎨 デザインの構築 ---
+        # quote_prefixを使わず、そのまま繋げる形に修正します
+        formatted_content = f"{reply_header}{text}"
+
+        # 翻訳先に応じた旗と色の設定
         if re.search(r'[\u3040-\u309F\u30A0-\u30FF]', translated_text):
             embed_color = 0xE6EAEF  # 日本宛
             flag = "🇯🇵"
@@ -199,11 +203,11 @@ async def on_message(message):
             embed_color = 0xFDB933  # 台湾宛
             flag = "🇹🇼"
 
+        # 翻訳文をEmbedに格納
         embed = discord.Embed(description=translated_text, color=embed_color)
         embed.set_footer(text=flag)
 
-        # Webhook用データ
-        formatted_content = f"{reply_header}{text}"
+        # Webhook用データ送信
         data = {
             "username": message.author.display_name,
             "avatar_url": str(message.author.avatar.url) if message.author.avatar else None,
@@ -211,11 +215,11 @@ async def on_message(message):
             "embeds": [embed.to_dict()]
         }
         
-        res = requests.post(WEBHOOK_URL, data=json.dumps(data), headers={"Content-Type": "application/json"})
+        # Webhook送信（外部通信を非同期スレッドで実行して速度低下を防止）
+        res = await asyncio.to_thread(requests.post, WEBHOOK_URL, data=json.dumps(data), headers={"Content-Type": "application/json"})
         
         if res.status_code in [200, 204]:
             await message.delete()
-            print(f"--- [SUCCESS] Translated for {message.author.name} ---")
         else:
             print(f"--- [ERROR] Webhook status: {res.status_code} ---")
 
